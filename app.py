@@ -60,8 +60,8 @@ def process_text():
         "text": text
     })
 
-@app.route('/api/upload_sign_video', methods=['POST'])
-def upload_sign_video():
+@app.route('/api/process_sign_video', methods=['POST'])
+def process_sign_video():
     if 'video' not in request.files:
         return jsonify({"error": "No video file provided"}), 400
     

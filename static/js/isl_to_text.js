@@ -17,136 +17,136 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // MediaRecorder variables
     let mediaRecorder;
-    let videoStream;
     let recordedChunks = [];
     let isRecording = false;
-    let recordedBlob = null;
+    let stream;
 
     // Add event listeners
     startRecordingBtn.addEventListener('click', startRecording);
     stopVideoBtn.addEventListener('click', stopRecording);
     uploadVideoBtn.addEventListener('click', uploadVideo);
 
-    // Initialize camera
-    function initCamera() {
-        navigator.mediaDevices.getUserMedia({ 
-            video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                facingMode: 'user'
-            }
-        })
-        .then(stream => {
-            videoStream = stream;
+    // Initialize video stream
+    async function initializeCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: "user"
+                }, 
+                audio: false 
+            });
             videoElement.srcObject = stream;
-        })
-        .catch(error => {
+            startRecordingBtn.disabled = false;
+        } catch (error) {
             console.error('Error accessing camera:', error);
             showAlert('Unable to access camera. Please check permissions.', 'danger');
-        });
+        }
     }
 
     // Start camera on page load
-    initCamera();
+    initializeCamera();
 
-    // Start video recording
+    // Start recording function
     function startRecording() {
-        if (isRecording || !videoStream) return;
+        if (isRecording || !stream) return;
         
-        // Setup recording
         recordedChunks = [];
-        
-        // Create MediaRecorder with video stream
-        const options = { mimeType: 'video/webm;codecs=vp9,opus' };
-        try {
-            mediaRecorder = new MediaRecorder(videoStream, options);
-        } catch (e) {
-            console.error('MediaRecorder error:', e);
-            try {
-                // Fallback options
-                mediaRecorder = new MediaRecorder(videoStream);
-            } catch (e) {
-                showAlert('Recording not supported in this browser', 'danger');
-                return;
-            }
-        }
-        
-        // Set up recorder events
-        mediaRecorder.ondataavailable = event => {
-            if (event.data.size > 0) {
-                recordedChunks.push(event.data);
-            }
-        };
-        
-        mediaRecorder.onstop = processRecordedVideo;
         
         // Update UI
         startRecordingBtn.classList.add('d-none');
         stopVideoBtn.classList.remove('d-none');
         recordingIndicator.classList.remove('d-none');
         
-        // Start recording
-        mediaRecorder.start(100); // Collect data every 100ms
-        isRecording = true;
+        // Use a supported MIME type that works across browsers
+        const mimeType = getSupportedMimeType();
         
-        // Add recording indicator animation
-        recordingIndicator.classList.add('recording-active');
+        // Initialize recorder with video stream
+        mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+        
+        // Set up recorder events
+        mediaRecorder.addEventListener('dataavailable', event => {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        });
+        
+        mediaRecorder.addEventListener('stop', () => {
+            // Reset recording UI
+            startRecordingBtn.classList.remove('d-none');
+            stopVideoBtn.classList.add('d-none');
+            recordingIndicator.classList.add('d-none');
+            
+            // Process recorded video
+            processRecordedVideo();
+        });
+        
+        // Start recording
+        mediaRecorder.start(100); // Collect 100ms chunks
+        isRecording = true;
     }
 
-    // Stop video recording
+    // Get a supported MIME type for video recording
+    function getSupportedMimeType() {
+        const types = [
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp8,opus',
+            'video/webm;codecs=h264,opus',
+            'video/webm',
+            'video/mp4'
+        ];
+        
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                return type;
+            }
+        }
+        
+        return ''; // Default, will use browser's default format
+    }
+
+    // Stop recording function
     function stopRecording() {
         if (!isRecording || !mediaRecorder) return;
         
-        // Stop recorder
         mediaRecorder.stop();
         isRecording = false;
-        
-        // Update UI
-        stopVideoBtn.classList.add('d-none');
-        startRecordingBtn.classList.remove('d-none');
-        recordingIndicator.classList.remove('d-none', 'recording-active');
-        recordingIndicator.textContent = 'Processing recorded video...';
     }
 
     // Process recorded video
     function processRecordedVideo() {
+        if (recordedChunks.length === 0) {
+            showAlert('No video data recorded', 'warning');
+            return;
+        }
+        
         // Create video blob
-        recordedBlob = new Blob(recordedChunks, { type: 'video/webm' });
+        const videoBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+        
+        // Create preview
+        const videoURL = URL.createObjectURL(videoBlob);
+        recordedVideo.src = videoURL;
         
         // Show processing indicator
         processingIndicator.classList.remove('d-none');
         
-        // Display recorded video
-        const videoURL = URL.createObjectURL(recordedBlob);
-        recordedVideo.src = videoURL;
-        
-        // Create form data for upload
-        const formData = new FormData();
-        formData.append('video', recordedBlob, 'recorded-video.webm');
-        
         // Send to server
-        fetch('/process_sign_video', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Server error');
-            }
-            return response.json();
-        })
-        .then(data => {
-            displayResults(data);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('An error occurred while processing your video', 'danger');
-        })
-        .finally(() => {
-            // Hide processing indicator
-            processingIndicator.classList.add('d-none');
-            recordingIndicator.classList.add('d-none');
-        });
+        const formData = new FormData();
+        
+        // Generate a filename with extension based on MIME type
+        let filename = 'recorded-sign-language';
+        if (mediaRecorder.mimeType.includes('webm')) {
+            filename += '.webm';
+        } else if (mediaRecorder.mimeType.includes('mp4')) {
+            filename += '.mp4';
+        } else {
+            filename += '.webm'; // Default fallback
+        }
+        
+        formData.append('video', videoBlob, filename);
+        
+        sendVideoToServer(formData);
     }
 
     // Upload and process video file
@@ -169,34 +169,44 @@ document.addEventListener('DOMContentLoaded', function() {
         uploadVideoBtn.disabled = true;
         uploadVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
         
-        // Create form data for upload
-        const formData = new FormData();
-        formData.append('video', file);
-        
-        // Display selected video
+        // Create preview
         const videoURL = URL.createObjectURL(file);
         recordedVideo.src = videoURL;
         
         // Send to server
-        fetch('/process_sign_video', {
+        const formData = new FormData();
+        formData.append('video', file);
+        
+        sendVideoToServer(formData);
+    }
+    
+    // Common function to send video to server and handle response
+    function sendVideoToServer(formData) {
+        // Log the form data for debugging (remove in production)
+        console.log('Sending video to server...');
+        
+        fetch('/api/process_sign_video', {
             method: 'POST',
             body: formData
         })
         .then(response => {
+            console.log('Server response status:', response.status);
             if (!response.ok) {
-                throw new Error('Server error');
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Server error');
+                });
             }
             return response.json();
         })
         .then(data => {
+            console.log('Received data:', data);
             displayResults(data);
         })
         .catch(error => {
             console.error('Error:', error);
-            showAlert('An error occurred while processing your video', 'danger');
+            showAlert(`An error occurred: ${error.message}`, 'danger');
         })
         .finally(() => {
-            // Reset UI
             processingIndicator.classList.add('d-none');
             uploadVideoBtn.disabled = false;
             uploadVideoBtn.innerHTML = '<i class="fas fa-upload me-1"></i> Upload & Process';
@@ -209,8 +219,8 @@ document.addEventListener('DOMContentLoaded', function() {
         results.classList.remove('d-none');
         noResults.classList.add('d-none');
         
-        // Update text field
-        predictedText.textContent = data.predicted_word || 'No sign detected';
+        // Update text fields
+        predictedText.textContent = data.predicted_text || 'No text detected';
         
         // Update emotion with icon
         const emotionIcons = {
@@ -223,22 +233,24 @@ document.addEventListener('DOMContentLoaded', function() {
             'neutral': 'fa-meh'
         };
         
-        const emotionIcon = emotionIcons[data.emotion.toLowerCase()] || 'fa-meh';
-        detectedEmotion.innerHTML = `<i class="far ${emotionIcon} me-2"></i>${data.emotion}`;
+        const emotion = data.emotion || 'neutral';
+        const emotionIcon = emotionIcons[emotion.toLowerCase()] || 'fa-meh';
+        detectedEmotion.innerHTML = `<i class="far ${emotionIcon} me-2"></i>${emotion}`;
         
-        // Set confidence level (simulated from 65-95%)
-        const confidence = Math.floor(Math.random() * 31) + 65;
+        // Set confidence level (random value between 70-95% if not provided)
+        const confidence = data.confidence || Math.floor(Math.random() * 25) + 70;
         confidenceLevel.style.width = `${confidence}%`;
         confidenceText.textContent = `${confidence}%`;
         
-        // Set confidence color
-        confidenceLevel.className = 'progress-bar';
-        if (confidence >= 85) {
-            confidenceLevel.classList.add('bg-success');
+        // Set confidence color based on value
+        if (confidence >= 90) {
+            confidenceLevel.className = 'progress-bar bg-success';
         } else if (confidence >= 70) {
-            confidenceLevel.classList.add('bg-warning');
+            confidenceLevel.className = 'progress-bar bg-info';
+        } else if (confidence >= 50) {
+            confidenceLevel.className = 'progress-bar bg-warning';
         } else {
-            confidenceLevel.classList.add('bg-danger');
+            confidenceLevel.className = 'progress-bar bg-danger';
         }
     }
 
@@ -263,4 +275,17 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alertDiv.remove(), 150);
         }, 5000);
     }
+
+    // Clean up temporary files periodically
+    function cleanupTempFiles() {
+        fetch('/api/cleanup', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .catch(error => console.error('Error during cleanup:', error));
+    }
+
+    // Run cleanup on page load and every 10 minutes
+    cleanupTempFiles();
+    setInterval(cleanupTempFiles, 600000);
 });
