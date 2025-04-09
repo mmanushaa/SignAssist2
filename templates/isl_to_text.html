@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language to Text | Sign Language Translator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow-lg">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('index') }}" class="btn btn-light btn-sm">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                        <h2 class="mb-0 text-center flex-grow-1">Sign Language to Text</h2>
+                        <div style="width: 60px;"></div> <!-- Placeholder for balance -->
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Record Sign Language Video</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <div id="videoPreview" class="ratio ratio-16x9 mb-3">
+                                                    <video id="videoElement" autoplay muted class="border rounded"></video>
+                                                </div>
+                                                <div class="d-flex">
+                                                    <button id="startRecordingBtn" class="btn btn-danger me-2">
+                                                        <i class="fas fa-video me-2"></i>Start Recording
+                                                    </button>
+                                                    <button id="stopVideoBtn" class="btn btn-secondary d-none">
+                                                        <i class="fas fa-stop me-2"></i>Stop
+                                                    </button>
+                                                </div>
+                                                <div id="recordingIndicator" class="mt-2 text-danger d-none">
+                                                    <i class="fas fa-circle-notch fa-spin me-2"></i>Recording...
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card h-100">
+                                                    <div class="card-header">
+                                                        <h6 class="mb-0">Instructions</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <ol class="mb-0">
+                                                            <li>Position yourself in front of the camera</li>
+                                                            <li>Ensure good lighting on your hands</li>
+                                                            <li>Click "Start Recording" when ready</li>
+                                                            <li>Perform your sign language gestures clearly</li>
+                                                            <li>Click "Stop" when finished</li>
+                                                            <li>Wait for processing to complete</li>
+                                                        </ol>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3">
+                                            <div id="processingIndicator" class="d-none">
+                                                <div class="progress mb-2">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                                </div>
+                                                <p class="text-center">Processing your sign language video...</p>
+                                            </div>
+                                            
+                                            <div id="uploadForm" class="mt-3">
+                                                <h6>Or upload a sign language video:</h6>
+                                                <div class="input-group">
+                                                    <input type="file" class="form-control" id="videoFileInput" accept="video/*">
+                                                    <button class="btn btn-primary" id="uploadVideoBtn">
+                                                        <i class="fas fa-upload me-1"></i> Upload & Process
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Recognition Results</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="results" class="d-none">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <h6>Predicted Text:</h6>
+                                                        <div id="predictedText" class="border p-3 rounded bg-light"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <h6>Detected Emotion:</h6>
+                                                        <div id="detectedEmotion" class="border p-3 rounded bg-light"></div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <h6>Confidence Level:</h6>
+                                                        <div class="border p-3 rounded bg-light">
+                                                            <div class="progress">
+                                                                <div id="confidenceLevel" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                                                            </div>
+                                                            <p id="confidenceText" class="mt-2 mb-0 text-center"></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                        <div class="mt-4">
+                                                <h6>Recorded Video:</h6>
+                                                <div class="ratio ratio-16x9">
+                                                    <video id="recordedVideo" controls class="border rounded">
+                                                        Your browser does not support the video tag.
+                                                    </video>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="noResults" class="text-center text-muted py-5">
+                                            <i class="fas fa-hand-paper fa-3x mb-3"></i>
+                                            <p class="mb-0">Record or upload a sign language video to see results</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/isl_to_text.js') }}"></script>
+</body>
+</html>
