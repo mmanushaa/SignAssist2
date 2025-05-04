@@ -1,0 +1,13 @@
+pandas
+scikit-learn
+flask
+werkzeug
+moviepy
+opencv-python
+numpy
+tensorflow
+keras
+mediapipe
+deepface
+nltk
+joblib
